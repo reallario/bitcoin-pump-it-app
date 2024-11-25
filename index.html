@@ -18,7 +18,7 @@
 
         #tradingview_widget {
             width: 100%;
-            height: 100%;
+            height: 75vh; /* 75% of the viewport height */
             position: relative; /* Keep widget at base layer */
             z-index: 1;
         }
@@ -33,15 +33,6 @@
             color: #fff; /* White text color */
             font-family: Arial, sans-serif;
             font-size: 12px; /* Adjust text size */
-        }
-
-        #audio-iframe {
-            width: 100%;
-            height: 50px;
-            border: none;
-            position: absolute;
-            bottom: 0;
-            left: 0;
         }
 
         /* Disco Party Effect */
@@ -69,9 +60,28 @@
             100% { background-color: rgba(255, 0, 255, 0.2); }
         }
 
-        #tradingview_widget {
-            width: 100%; /* Full width */
-            height: 75vh; /* Half the height of the viewport (75% of window height) */
+        /* Start Button Style */
+        #start-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 3; /* Ensure it appears above other elements */
+            background-color: #ff9900;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 600px) {
+            #start-button {
+                font-size: 18px;
+                padding: 15px 30px;
+            }
         }
     </style>
 </head>
@@ -80,16 +90,18 @@
     <div id="tradingview_widget"></div>
 
     <!-- Text Section -->
-    <div id="text-section">
-        @reallario
-    </div>
+    <div id="text-section">@reallario</div>
 
     <!-- Disco Party Effect -->
     <div id="disco"></div>
 
-    <!-- Iframe for Audio -->
-    <iframe id="audio-iframe" allow="autoplay" playsinline></iframe>
+    <!-- Audio Player -->
+    <audio id="background-audio" loop></audio>
 
+    <!-- Start Button -->
+    <button id="start-button">Start the Pump</button>
+
+    <!-- Include your scripts -->
     <script src="https://s3.tradingview.com/tv.js"></script>
     <script>
         // Initialize TradingView Widget
@@ -109,55 +121,124 @@
             "allow_symbol_change": false
         });
 
-        // Audio Logic using iframe
-        const iframe = document.getElementById('audio-iframe');
+        // Initialize variables
+        const audioElement = document.getElementById('background-audio');
         const discoElement = document.getElementById('disco');
+        const startButton = document.getElementById('start-button');
 
-        // Local MP3 file paths
-        const positiveAudio = 'Endor - Pump It Up.mp3'; // Replace with actual file path
-        const negativeAudio = 'Sad song meme.mp3'; // Replace with actual file path
+        // MP3 files for positive and negative price changes
+        const positiveAudioSrc = 'Endor - Pump It Up.mp3'; // Positive MP3 file path
+        const negativeAudioSrc = 'Sad song meme.mp3'; // Negative MP3 file path
 
-        let lastCandleDirection = null;
+        // Preload audio files
+        const positiveAudio = new Audio(positiveAudioSrc);
+        const negativeAudio = new Audio(negativeAudioSrc);
 
+        // Set audio to loop
+        positiveAudio.loop = true;
+        negativeAudio.loop = true;
+
+        let lastCandleDirection = null; // Tracks the color of the last candle
+        let intervalId = null; // To keep track of the interval
+
+        // Function to play audio
+        function playAudio(audio) {
+            // Pause any currently playing audio
+            positiveAudio.pause();
+            negativeAudio.pause();
+
+            // Reset playback position
+            audio.currentTime = 0;
+
+            // Play the selected audio
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    // Automatic playback started!
+                }).catch(error => {
+                    console.error('Error playing audio:', error);
+                });
+            }
+        }
+
+        // Fetch latest candlestick data and update the audio and visual effects
         async function fetchLatestCandle() {
             try {
                 const response = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1');
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok: ${response.statusText}`);
+                }
                 const data = await response.json();
-                const latestCandle = data[0];
+                const latestCandle = data[0]; // Get the latest candlestick data
+
+                // Extract candle properties
                 const openPrice = parseFloat(latestCandle[1]);
                 const closePrice = parseFloat(latestCandle[4]);
 
+                // Determine candle color
                 if (closePrice > openPrice && lastCandleDirection !== 'green') {
-                    // Play positive audio
-                    iframe.src = positiveAudio;
+                    // Green candle: Positive change
+                    playAudio(positiveAudio);
                     lastCandleDirection = 'green';
 
-                    // Disco effect
+                    // Disco effect with transparency
                     discoElement.classList.add('disco-effect');
-                    discoElement.style.opacity = '1';
-                    document.body.style.filter = 'none';
+                    discoElement.style.opacity = '1'; // Make the disco visible
+                    document.body.style.filter = 'none'; // Remove grayscale effect
                 } else if (closePrice < openPrice && lastCandleDirection !== 'red') {
-                    // Play negative audio
-                    iframe.src = negativeAudio;
+                    // Red candle: Negative change
+                    playAudio(negativeAudio);
                     lastCandleDirection = 'red';
 
                     // Remove disco effect
                     discoElement.classList.remove('disco-effect');
-                    discoElement.style.opacity = '0';
-                    document.body.style.filter = 'grayscale(100%)';
+                    discoElement.style.opacity = '0'; // Hide the disco effect
+                    document.body.style.filter = 'grayscale(100%)'; // Apply grayscale effect
+                } else if (closePrice === openPrice && lastCandleDirection !== 'neutral') {
+                    // Neutral candle
+                    positiveAudio.pause();
+                    negativeAudio.pause();
+                    lastCandleDirection = 'neutral';
+                    discoElement.classList.remove('disco-effect');
+                    discoElement.style.opacity = '0'; // Hide the disco effect
+                    document.body.style.filter = 'none';
                 }
             } catch (error) {
                 console.error('Error fetching candlestick data:', error);
             }
         }
 
-        // Ensure autoplay works immediately on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            iframe.src = 'Endor - Pump It Up.mp3'; // Default audio on page load
+        // Function to start the app
+        function startApp() {
+            // Unlock audio context on iOS
+            if (typeof window.AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            }
+
+            // Start fetching data immediately
+            fetchLatestCandle();
+
+            // Start the interval to fetch data every second
+            intervalId = setInterval(fetchLatestCandle, 1000);
+
+            // Hide the start button
+            startButton.style.display = 'none';
+        }
+
+        // Add event listeners to the start button for both click and touch events
+        startButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            startApp();
         });
 
-        // Update candle data and music every second
-        setInterval(fetchLatestCandle, 1000);
+        startButton.addEventListener('touchstart', function(event) {
+            event.preventDefault();
+            startApp();
+        }, { passive: false });
+
     </script>
 </body>
 </html>
