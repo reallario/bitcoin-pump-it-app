@@ -131,7 +131,6 @@
         });
 
         // Initialize variables
-        const audioElement = document.getElementById('background-audio');
         const discoElement = document.getElementById('disco');
         const startButton = document.getElementById('start-button');
 
@@ -139,22 +138,16 @@
         const positiveAudioSrc = 'Endor - Pump It Up.mp3'; // Positive MP3 file path
         const negativeAudioSrc = 'Sad song meme.mp3'; // Negative MP3 file path
 
-        // Preload audio files
-        const positiveAudio = new Audio(positiveAudioSrc);
-        const negativeAudio = new Audio(negativeAudioSrc);
-
-        // Set audio to loop
-        positiveAudio.loop = true;
-        negativeAudio.loop = true;
-
+        let positiveAudio; // Declare variables without initializing
+        let negativeAudio;
         let lastCandleDirection = null; // Tracks the color of the last candle
         let intervalId = null; // To keep track of the interval
 
         // Function to play audio
         function playAudio(audio) {
             // Pause any currently playing audio
-            positiveAudio.pause();
-            negativeAudio.pause();
+            if (positiveAudio) positiveAudio.pause();
+            if (negativeAudio) negativeAudio.pause();
 
             // Reset playback position
             audio.currentTime = 0;
@@ -205,8 +198,8 @@
                     document.body.style.filter = 'grayscale(100%)'; // Apply grayscale effect
                 } else if (closePrice === openPrice && lastCandleDirection !== 'neutral') {
                     // Neutral candle
-                    positiveAudio.pause();
-                    negativeAudio.pause();
+                    if (positiveAudio) positiveAudio.pause();
+                    if (negativeAudio) negativeAudio.pause();
                     lastCandleDirection = 'neutral';
                     discoElement.classList.remove('disco-effect');
                     discoElement.style.opacity = '0'; // Hide the disco effect
@@ -227,6 +220,9 @@
                 }
             }
 
+            // Initialize and unlock audio playback
+            initializeAudio();
+
             // Start fetching data immediately
             fetchLatestCandle();
 
@@ -237,17 +233,43 @@
             startButton.style.display = 'none';
         }
 
+        // Function to initialize and unlock audio playback
+        function initializeAudio() {
+            // Initialize audio objects
+            positiveAudio = new Audio(positiveAudioSrc);
+            negativeAudio = new Audio(negativeAudioSrc);
+
+            // Set audio to loop
+            positiveAudio.loop = true;
+            negativeAudio.loop = true;
+
+            // Unlock audio playback by calling play() and immediately pausing
+            positiveAudio.play().then(() => {
+                positiveAudio.pause();
+                positiveAudio.currentTime = 0;
+            }).catch(error => {
+                console.error('Positive audio playback error:', error);
+            });
+
+            negativeAudio.play().then(() => {
+                negativeAudio.pause();
+                negativeAudio.currentTime = 0;
+            }).catch(error => {
+                console.error('Negative audio playback error:', error);
+            });
+        }
+
+        // Function to handle the start button click or touch event
+        function handleStartButton(event) {
+            event.preventDefault();
+
+            // Start the application
+            startApp();
+        }
+
         // Add event listeners to the start button for both click and touch events
-        startButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            startApp();
-        });
-
-        startButton.addEventListener('touchstart', function(event) {
-            event.preventDefault();
-            startApp();
-        }, { passive: false });
-
+        startButton.addEventListener('click', handleStartButton);
+        startButton.addEventListener('touchstart', handleStartButton, { passive: false });
     </script>
 </body>
 </html>
